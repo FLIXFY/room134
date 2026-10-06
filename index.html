@@ -1,0 +1,1070 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>html{box-sizing:border-box;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Свечка за сессию</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Neucha&family=PT+Mono&family=Ruslan+Display&display=swap">
+<style>
+/* Layout: the 3D hall fills the screen; a thin top bar holds the name and the wallet,
+   one sheet at the bottom holds the candle choice. Single dark look by choice: the page is a candlelit room. */
+:root {
+  color-scheme: dark;
+  --slate: #151d1a;        /* chalkboard ground */
+  --slate-2: #212d28;      /* raised controls */
+  --sheet: rgba(18, 26, 23, 0.9);
+  --shade: rgba(9, 13, 12, 0.78);
+  --line: #3b4b43;
+  --chalk: #ece8dc;
+  --chalk-dim: #a7b2a9;
+  --wax: #d8b060;          /* beeswax */
+  --gold: #f0c044;
+  --ink: #17110a;          /* text on wax and gold */
+  --font-display: "Ruslan Display", Georgia, "Times New Roman", serif;
+  --font-body: "Golos Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-data: "PT Mono", ui-monospace, Consolas, "Courier New", monospace;
+}
+html, body { height: 100%; }
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--slate);
+  color: var(--chalk);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.4;
+}
+#app { position: relative; height: 100%; overflow: hidden; background: var(--slate); }
+#scene { display: block; width: 100%; height: 100%; touch-action: none; outline: none; cursor: grab; }
+#app.locked #scene { cursor: none; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+#scene:focus-visible { outline-offset: -2px; }
+
+#cross {
+  position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -3px 0 0 -3px;
+  border-radius: 50%; background: var(--chalk); opacity: 0.55; pointer-events: none;
+}
+
+#top {
+  position: absolute; inset: 0 0 auto 0;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px;
+  padding: 12px 16px 22px;
+  background: linear-gradient(var(--shade), transparent);
+  pointer-events: none;
+}
+#top > * { pointer-events: auto; }
+h1 {
+  margin: 0; font-family: var(--font-display); font-weight: 400;
+  font-size: clamp(1.15rem, 2.6vw, 1.6rem); letter-spacing: 0.02em; color: var(--chalk);
+}
+.wallet {
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 5px 5px 12px;
+  background: var(--sheet); border: 1px solid var(--line); border-radius: 3px;
+}
+.wallet-label { color: var(--chalk-dim); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.7rem; }
+#balance { font-family: var(--font-data); font-variant-numeric: tabular-nums; color: var(--gold); font-size: 1rem; }
+
+.top-right { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.online { padding: 6px 10px; font-size: 0.85rem; background: var(--sheet); border: 1px solid var(--line); border-radius: 3px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field label { font-size: 0.8rem; color: var(--chalk-dim); }
+.field input {
+  min-width: 0; padding: 8px 10px; font: inherit; color: var(--chalk);
+  background: var(--slate); border: 1px solid var(--line); border-radius: 3px;
+}
+
+button { font: inherit; color: inherit; cursor: pointer; }
+.btn { border: 1px solid var(--line); background: var(--slate-2); border-radius: 3px; padding: 5px 10px; }
+.btn:hover { border-color: var(--chalk-dim); }
+.btn-main {
+  width: 100%; padding: 11px 14px; font-weight: 600;
+  background: var(--wax); border-color: var(--wax); color: var(--ink);
+}
+.btn-main:hover { border-color: var(--chalk); }
+.btn-main.is-gold { background: var(--gold); border-color: var(--gold); }
+.btn-main:disabled { background: var(--slate-2); border-color: var(--line); color: var(--chalk-dim); cursor: default; }
+
+.sheet {
+  position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+  box-sizing: border-box; width: min(34rem, calc(100% - 32px));
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 16px 12px;
+  background: var(--sheet); border: 1px solid var(--line); border-radius: 3px;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.sheet p, .sheet h2, .sheet ul { margin: 0; }
+.sheet h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.25rem; text-wrap: balance; }
+.fine { color: var(--chalk-dim); font-size: 0.8rem; }
+
+#where { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-width: 0; }
+#where-name { font-weight: 600; font-size: 1.05rem; }
+#where-rest { color: var(--chalk-dim); font-size: 0.88rem; }
+
+.kinds { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 360px) { .kinds { grid-template-columns: 1fr; } }
+.kind { position: relative; display: block; cursor: pointer; }
+.kind input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.kind-body {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 10px;
+  padding: 9px 11px; background: var(--slate-2); border: 1px solid var(--line); border-radius: 3px;
+}
+.kind-name { font-weight: 600; }
+.kind-price { font-family: var(--font-data); font-size: 0.9rem; }
+.kind-note { flex-basis: 100%; color: var(--chalk-dim); font-size: 0.8rem; }
+.kind input:checked + .kind-body { border-color: var(--wax); box-shadow: inset 0 0 0 1px var(--wax); }
+.kind-gold input:checked + .kind-body { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.kind-gold .kind-price { color: var(--gold); }
+.kind input:focus-visible + .kind-body { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+kbd {
+  font-family: var(--font-data); font-size: 0.72rem; color: var(--chalk-dim);
+  padding: 0 5px; background: var(--slate); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px;
+}
+.btn-main kbd { color: var(--ink); background: transparent; border-color: var(--ink); opacity: 0.7; }
+.keys { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.88rem; color: var(--chalk-dim); }
+@media (hover: none), (pointer: coarse) { kbd, .for-mouse { display: none; } }
+@media (hover: hover) and (pointer: fine) { .for-touch { display: none; } }
+
+#toast {
+  position: absolute; left: 50%; top: 70px; transform: translateX(-50%);
+  box-sizing: border-box; width: max-content; max-width: min(30rem, calc(100% - 32px));
+  padding: 8px 14px; text-align: center; font-size: 0.9rem;
+  background: var(--sheet); border: 1px solid var(--wax); border-radius: 3px;
+  opacity: 0; transition: opacity 0.25s; pointer-events: none;
+}
+#toast.on { opacity: 1; }
+@media (max-width: 520px) { #toast { top: 108px; } }
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+
+#stick {
+  position: absolute; width: 96px; height: 96px; margin: -48px 0 0 -48px;
+  border: 1px solid var(--chalk-dim); border-radius: 50%; pointer-events: none; opacity: 0.7;
+}
+#stick i { position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; background: var(--chalk); opacity: 0.6; }
+
+#nogl { position: absolute; inset: 0; margin: 0; padding: 96px 16px 16px; text-align: center; background: var(--slate); }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="scene" tabindex="0" aria-label="Трёхмерный зал: вдоль стен стоят доски с предметами, перед каждой стол для свечек"></canvas>
+  <div id="cross" aria-hidden="true" hidden></div>
+
+  <header id="top">
+    <h1>Свечка за сессию</h1>
+    <div class="top-right">
+      <span id="online" class="online" hidden></span>
+      <div class="wallet">
+        <span class="wallet-label">Демо-кошелёк</span>
+        <output id="balance" for="topup">100 ₽</output>
+        <button id="topup" class="btn" type="button"><kbd>P</kbd> +100 ₽</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <section id="panel" class="sheet" aria-label="Свечка" hidden>
+    <p id="where"><span id="where-name">Подойдите к столу</span><span id="where-rest"></span></p>
+    <fieldset class="kinds">
+      <label class="kind kind-plain">
+        <input type="radio" name="kind" id="kind-plain" value="plain" checked>
+        <span class="kind-body">
+          <span class="kind-name"><kbd>1</kbd> Обычная</span>
+          <span class="kind-price">бесплатно</span>
+          <span class="kind-note">горит 10 минут</span>
+        </span>
+      </label>
+      <label class="kind kind-gold">
+        <input type="radio" name="kind" id="kind-gold" value="gold">
+        <span class="kind-body">
+          <span class="kind-name"><kbd>2</kbd> Золотая</span>
+          <span class="kind-price">50 ₽</span>
+          <span class="kind-note">горит сутки и светит ярче</span>
+        </span>
+      </label>
+    </fieldset>
+    <button id="place" class="btn btn-main" type="button" disabled>Подойдите к столу</button>
+    <p id="hint" class="fine for-mouse">Щёлкните по залу, чтобы смотреть мышью. Можно и тянуть с зажатой кнопкой.</p>
+  </section>
+
+  <section id="intro" class="sheet" aria-labelledby="intro-h">
+    <h2 id="intro-h">Зал, где ставят свечки за предметы</h2>
+    <p>Подойдите к столу у доски и поставьте свечку. Обычная бесплатна и горит 10 минут. Золотая стоит 50 ₽ и горит сутки.</p>
+    <ul class="keys for-mouse">
+      <li><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> ходить</li>
+      <li>мышь: смотреть</li>
+      <li><kbd>E</kbd> поставить</li>
+      <li><kbd>1</kbd> <kbd>2</kbd> выбрать свечку</li>
+    </ul>
+    <p class="for-touch">Левой половиной экрана ходите, правой смотрите по сторонам.</p>
+    <div id="nick-field" class="field" hidden>
+      <label for="nick">Имя, которое увидят другие в зале</label>
+      <input id="nick" type="text" maxlength="16" autocomplete="nickname" spellcheck="false">
+    </div>
+    <button id="enter" class="btn btn-main" type="button">Войти в зал</button>
+    <p id="intro-fine" class="fine">Кошелёк демонстрационный: настоящие деньги не списываются. Несколько свечек на столах уже горят для примера.</p>
+  </section>
+
+  <div id="stick" aria-hidden="true" hidden><i></i></div>
+  <p id="nogl" hidden>Браузер не смог включить 3D-графику (WebGL). Откройте страницу в свежем Chrome, Firefox или Safari.</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function () {
+  'use strict';
+  /* Мультиплеер. Вставьте два значения из настроек проекта Supabase
+     (Project URL и anon / publishable key). Пока строки пустые, зал одиночный. */
+  const SUPABASE_URL = 'https://gnbgukcqsljbfjzhqmpn.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_D0KGaCeenZQhOohcW7y89g_JhOogoMY';
+
+  const $ = (id) => document.getElementById(id);
+  const app = $('app'), canvas = $('scene');
+  const ui = {
+    balance: $('balance'), topup: $('topup'), toast: $('toast'), panel: $('panel'),
+    whereName: $('where-name'), whereRest: $('where-rest'), place: $('place'), hint: $('hint'),
+    intro: $('intro'), enter: $('enter'), stick: $('stick'), cross: $('cross'),
+    plain: $('kind-plain'), gold: $('kind-gold'), nogl: $('nogl'),
+    online: $('online'), nick: $('nick'), nickField: $('nick-field'), introFine: $('intro-fine')
+  };
+
+  const PRICE = 50, TOPUP = 100, START_BALANCE = 100;
+  const DUR_PLAIN = 10 * 60 * 1000, DUR_GOLD = 24 * 60 * 60 * 1000;
+  const STORE = 'svechka-za-sessiyu.v2', OLD_STORE = 'svechka-za-sessiyu.v1';
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const CHALK_FONT = '"Neucha", "Comic Sans MS", "Segoe Print", cursive';
+
+  // ^{…} is a superscript, _{…} a subscript; a sub followed by a sup is stacked.
+  const SUBJECTS = [
+    { name: 'Линейная алгебра', acc: 'линейную алгебру', tag: 'экзамен',
+      lines: ['det(A − λE) = 0', 'rank A + dim ker A = n', '(AB)^{T} = B^{T}A^{T}'] },
+    { name: 'Математический анализ', acc: 'математический анализ', tag: 'экзамен', feared: true,
+      lines: ['∫_{−∞}^{+∞} e^{−x²} dx = √π', 'lim_{n→∞} (1 + 1/n)^{n} = e', 'e^{iπ} + 1 = 0'] },
+    { name: 'Геометрия', acc: 'геометрию', tag: 'экзамен',
+      lines: ['x^{2}/a^{2} + y^{2}/b^{2} = 1', 'cos φ = (a · b) / (|a| |b|)', 'Ax + By + Cz + D = 0'] },
+    { name: 'Информатика', acc: 'информатику', tag: 'зачёт',
+      lines: ['1 байт = 8 бит', '255_{10} = FF_{16} = 11111111_{2}', 'A ∧ (B ∨ C) = (A ∧ B) ∨ (A ∧ C)'] },
+    { name: 'Языки программирования', acc: 'языки программирования', tag: 'зачёт',
+      lines: ['while (!сдал) учить();', 'int *p = &x;', '// TODO: выспаться'] },
+    { name: 'Английский язык', acc: 'английский язык', tag: 'зачёт',
+      lines: ['If I had studied,', 'I would have passed.', 'pass ≠ take an exam'] }
+  ];
+  const RULES = { name: 'Правила зала', tag: '',
+    lines: ['Обычная свечка: бесплатно, 10 минут', 'Золотая: 50 ₽, горит сутки', 'Подойди к столу и нажми E'] };
+
+  if (typeof THREE === 'undefined') { ui.nogl.hidden = false; ui.intro.hidden = true; return; }
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' });
+  } catch (err) { ui.nogl.hidden = false; ui.intro.hidden = true; return; }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+  const BG = 0x0d1311;
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(BG);
+  scene.fog = new THREE.Fog(BG, 12, 42);
+  const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 80);
+  camera.rotation.order = 'YXZ';
+
+  /* ---------- textures ---------- */
+  function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+  function texture(cv) {
+    const t = new THREE.CanvasTexture(cv);
+    t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    return t;
+  }
+
+  function floorTexture() {
+    const cv = makeCanvas(512, 512), c = cv.getContext('2d');
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let row = 0; row < 8; row++) {
+      let x = -rnd() * 180;
+      while (x < 512) {
+        const len = 150 + rnd() * 160, v = rnd();
+        c.fillStyle = 'rgb(' + Math.round(92 + v * 30) + ',' + Math.round(66 + v * 22) + ',' + Math.round(42 + v * 14) + ')';
+        c.fillRect(x, row * 64, len, 64);
+        c.fillStyle = 'rgba(20,12,6,0.55)';
+        c.fillRect(x + len - 2, row * 64, 2, 64);
+        x += len;
+      }
+      c.fillStyle = 'rgba(20,12,6,0.6)';
+      c.fillRect(0, row * 64, 512, 2);
+    }
+    for (let i = 0; i < 420; i++) {
+      c.fillStyle = 'rgba(30,18,8,' + (0.04 + rnd() * 0.08) + ')';
+      c.fillRect(rnd() * 512, rnd() * 512, 20 + rnd() * 70, 1);
+    }
+    return cv;
+  }
+
+  function flameTexture() {
+    const cv = makeCanvas(64, 64), c = cv.getContext('2d');
+    const g = c.createRadialGradient(32, 34, 0, 32, 32, 30);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.22, 'rgba(255,236,170,0.95)');
+    g.addColorStop(0.5, 'rgba(255,150,45,0.5)');
+    g.addColorStop(1, 'rgba(255,90,0,0)');
+    c.fillStyle = g; c.fillRect(0, 0, 64, 64);
+    return cv;
+  }
+
+  function windowTexture() {
+    const cv = makeCanvas(256, 320), c = cv.getContext('2d');
+    const g = c.createLinearGradient(0, 0, 0, 320);
+    g.addColorStop(0, '#0d1836'); g.addColorStop(1, '#3d6198');
+    c.fillStyle = g; c.fillRect(0, 0, 256, 320);
+    let seed = 41; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    c.fillStyle = '#dfe8f5';
+    for (let i = 0; i < 46; i++) { const s = rnd() * 1.6 + 0.4; c.fillRect(rnd() * 256, rnd() * 220, s, s); }
+    const m = c.createRadialGradient(182, 78, 0, 182, 78, 60);
+    m.addColorStop(0, 'rgba(240,244,250,1)'); m.addColorStop(0.42, 'rgba(240,244,250,1)');
+    m.addColorStop(0.46, 'rgba(200,215,240,0.35)'); m.addColorStop(1, 'rgba(200,215,240,0)');
+    c.fillStyle = m; c.fillRect(100, 0, 156, 160);
+    c.fillStyle = '#1b130c';
+    c.fillRect(0, 0, 256, 10); c.fillRect(0, 310, 256, 10); c.fillRect(0, 0, 10, 320); c.fillRect(246, 0, 10, 320);
+    c.fillRect(124, 0, 8, 320); c.fillRect(0, 104, 256, 7); c.fillRect(0, 208, 256, 7);
+    return cv;
+  }
+
+  function drawFormula(c, text, x, y, size, family) {
+    const re = /([_^])\{([^}]*)\}/g, parts = [];
+    let last = 0, m;
+    while ((m = re.exec(text))) {
+      if (m.index > last) parts.push({ t: text.slice(last, m.index), k: '' });
+      parts.push({ t: m[2], k: m[1] });
+      last = re.lastIndex;
+    }
+    if (last < text.length) parts.push({ t: text.slice(last), k: '' });
+    const small = Math.round(size * 0.6);
+    const dy = (k) => (k === '^' ? -size * 0.42 : size * 0.24);
+    let cx = x;
+    for (let i = 0; i < parts.length; i++) {
+      const p = parts[i];
+      if (!p.k) {
+        c.font = size + 'px ' + family;
+        c.fillText(p.t, cx, y);
+        cx += c.measureText(p.t).width;
+      } else {
+        c.font = small + 'px ' + family;
+        let w = c.measureText(p.t).width;
+        c.fillText(p.t, cx, y + dy(p.k));
+        const nxt = parts[i + 1];
+        if (nxt && nxt.k && nxt.k !== p.k) {
+          w = Math.max(w, c.measureText(nxt.t).width);
+          c.fillText(nxt.t, cx, y + dy(nxt.k));
+          i++;
+        }
+        cx += w + size * 0.07;
+      }
+    }
+  }
+
+  const CHALKS = ['#f1ede0', '#f3e3a4', '#b9d7ea'];
+  function drawBoard(cv, spec, lineSize) {
+    const c = cv.getContext('2d'), w = cv.width, h = cv.height;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.fillStyle = '#22302b'; c.fillRect(0, 0, w, h);
+    let seed = spec.name.length * 97 + 13; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 26; i++) {
+      c.fillStyle = 'rgba(236,232,220,' + (0.012 + rnd() * 0.03) + ')';
+      c.beginPath();
+      c.ellipse(rnd() * w, rnd() * h, 60 + rnd() * 220, 14 + rnd() * 40, rnd() * 0.6 - 0.3, 0, Math.PI * 2);
+      c.fill();
+    }
+    c.textBaseline = 'alphabetic'; c.textAlign = 'left'; c.fillStyle = CHALKS[0];
+    let size = 92;
+    c.font = size + 'px ' + CHALK_FONT;
+    while (c.measureText(spec.name).width > w - 150 && size > 40) { size -= 4; c.font = size + 'px ' + CHALK_FONT; }
+    c.fillText(spec.name, 70, 112);
+    const tw = c.measureText(spec.name).width;
+    c.strokeStyle = 'rgba(241,237,224,0.8)'; c.lineWidth = 5; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(66, 136); c.quadraticCurveTo(70 + tw / 2, 148, 78 + tw, 132); c.stroke();
+    spec.lines.forEach((ln, i) => {
+      c.fillStyle = CHALKS[i % 3];
+      drawFormula(c, ln, 84 + (i % 2) * 26, 236 + i * 92, lineSize, CHALK_FONT);
+    });
+    if (spec.tag) {
+      c.fillStyle = 'rgba(241,237,224,0.6)'; c.font = '34px ' + CHALK_FONT; c.textAlign = 'right';
+      c.fillText(spec.tag, w - 56, h - 28);
+      c.textAlign = 'left';
+    }
+  }
+
+  /* ---------- room ---------- */
+  const W = 26, D = 16, H = 5.6;
+  const wood = new THREE.MeshPhongMaterial({ color: 0x4a3524, shininess: 12, specular: 0x1a120a });
+  const darkWood = new THREE.MeshPhongMaterial({ color: 0x3a2a1c, shininess: 22, specular: 0x2a1c10 });
+  const wallMat = new THREE.MeshPhongMaterial({ color: 0x586a61, shininess: 4, specular: 0x050505 });
+
+  const floorTex = texture(floorTexture());
+  floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(W / 4, D / 4);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D),
+    new THREE.MeshPhongMaterial({ map: floorTex, shininess: 26, specular: 0x2a2014 }));
+  floor.rotation.x = -Math.PI / 2; scene.add(floor);
+
+  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshPhongMaterial({ color: 0x1b2320, shininess: 2 }));
+  ceiling.rotation.x = Math.PI / 2; ceiling.position.y = H; scene.add(ceiling);
+
+  function wall(w, x, z, ry) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, H), wallMat);
+    m.position.set(x, H / 2, z); m.rotation.y = ry; scene.add(m);
+  }
+  wall(W, 0, -D / 2, 0); wall(W, 0, D / 2, Math.PI);
+  wall(D, -W / 2, 0, Math.PI / 2); wall(D, W / 2, 0, -Math.PI / 2);
+
+  function box(w, h, d, x, y, z, mat) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    m.position.set(x, y, z); scene.add(m); return m;
+  }
+  box(W, 1, 0.06, 0, 0.5, -D / 2 + 0.03, wood); box(W, 1, 0.06, 0, 0.5, D / 2 - 0.03, wood);
+  box(0.06, 1, D, -W / 2 + 0.03, 0.5, 0, wood); box(0.06, 1, D, W / 2 - 0.03, 0.5, 0, wood);
+
+  // carpet runner down the middle
+  const trim = new THREE.Mesh(new THREE.PlaneGeometry(21.4, 3), new THREE.MeshPhongMaterial({ color: 0x9a7a40, shininess: 2 }));
+  trim.rotation.x = -Math.PI / 2; trim.position.y = 0.006; scene.add(trim);
+  const carpet = new THREE.Mesh(new THREE.PlaneGeometry(21, 2.6), new THREE.MeshPhongMaterial({ color: 0x5b2430, shininess: 2 }));
+  carpet.rotation.x = -Math.PI / 2; carpet.position.y = 0.012; scene.add(carpet);
+
+  // moonlit window on the east wall
+  const winTex = texture(windowTexture());
+  winTex.generateMipmaps = false; winTex.minFilter = THREE.LinearFilter;
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 4), new THREE.MeshBasicMaterial({ map: winTex, fog: false }));
+  win.position.set(W / 2 - 0.05, 3, 0); win.rotation.y = -Math.PI / 2; scene.add(win);
+  const moon = new THREE.PointLight(0x7f9fd0, 0.75, 17, 2); moon.position.set(W / 2 - 1.6, 3.2, 0); scene.add(moon);
+
+  scene.add(new THREE.HemisphereLight(0x93a6ba, 0x3a2a1c, 0.85));
+
+  /* ---------- boards and tables ---------- */
+  const boards = [];
+  function addBoard(spec, x, y, z, ry, lineSize) {
+    const cv = makeCanvas(1024, 512);
+    drawBoard(cv, spec, lineSize);
+    const tex = texture(cv);
+    const mat = new THREE.MeshPhongMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.5, shininess: 6 });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 2.3), mat);
+    m.position.set(x, y, z); m.rotation.y = ry; scene.add(m);
+    boards.push({ cv: cv, tex: tex, spec: spec, lineSize: lineSize });
+  }
+
+  const XS = [-8.5, 0, 8.5], HALF = XS.length;
+  const TOP = 0.97;
+  const stations = [];
+  SUBJECTS.forEach((sub, i) => {
+    const north = i < HALF, dir = north ? 1 : -1;
+    const x = north ? XS[i] : XS[2 * HALF - 1 - i];
+    const wz = north ? -D / 2 : D / 2;
+    const tz = wz + dir * 1.3;
+    box(4.9, 2.6, 0.08, x, 2.6, wz + dir * 0.04, wood);
+    addBoard(sub, x, 2.6, wz + dir * 0.086, north ? 0 : Math.PI, 58);
+    box(4.6, 0.05, 0.14, x, 1.3, wz + dir * 0.11, wood);
+    box(3, 0.92, 0.9, x, 0.46, tz, darkWood);
+    box(2.86, 0.05, 0.76, x, 0.945, tz, new THREE.MeshPhongMaterial({ color: 0x8f7d58, shininess: 3 }));
+    const light = new THREE.PointLight(0xffa85a, 0, 10, 2);
+    light.position.set(x, 2.2, tz + dir * 0.6); scene.add(light);
+    stations.push({ sub: i, x: x, tz: tz, dir: dir, light: light, glow: 0 });
+  });
+  box(0.08, 2.6, 4.9, -W / 2 + 0.04, 2.6, 0, wood);
+  addBoard(RULES, -W / 2 + 0.086, 2.6, 0, Math.PI / 2, 46);
+
+  if (document.fonts && document.fonts.load) {
+    document.fonts.load('60px "Neucha"', 'Анализ abc').then(() => {
+      boards.forEach((b) => { drawBoard(b.cv, b.spec, b.lineSize); b.tex.needsUpdate = true; });
+    }).catch(() => {});
+  }
+
+  /* ---------- candles ---------- */
+  const SLOTS = 24;
+  const candleGeo = new THREE.CylinderGeometry(1, 1, 1, 10);
+  const waxMat = new THREE.MeshPhongMaterial({ color: 0xd8b060, emissive: 0x3a2608, shininess: 20 });
+  const goldMat = new THREE.MeshPhongMaterial({ color: 0xf0c044, emissive: 0x6a4a08, specular: 0xfff2c0, shininess: 90 });
+  const flameTex = texture(flameTexture());
+  const flameMat = new THREE.SpriteMaterial({ map: flameTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true });
+
+  const state = { balance: START_BALANCE, candles: [], kind: 'plain', near: -1, entered: false };
+
+  const NET = {
+    client: null, ch: null, live: false, tracked: false, busy: false, warned: false, force: false,
+    count: 0, offset: 0, since: 0, lastSend: 0, lastSig: '',
+    id: '', owner: '', name: '', hue: 0, peers: new Map(), ids: new Set()
+  };
+  if (SUPABASE_URL && SUPABASE_KEY && window.supabase && window.supabase.createClient) {
+    try {
+      NET.client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY,
+        { auth: { persistSession: false }, realtime: { params: { eventsPerSecond: 4 } } });
+    } catch (err) { NET.client = null; }
+  }
+  const online = !!NET.client;
+
+  function slotPos(st, slot) {
+    const col = slot % 8, row = (slot / 8) | 0;
+    return { x: st.x + (col - 3.5) * 0.33 + (row === 1 ? 0.08 : -0.04), z: st.tz + (row - 1) * 0.24 };
+  }
+  function addMesh(c, instant) {
+    const st = stations[c.s], p = slotPos(st, c.slot);
+    c.r = c.gold ? 0.042 : 0.028;
+    c.fullH = c.gold ? 0.52 : 0.36;
+    c.body = new THREE.Mesh(candleGeo, c.gold ? goldMat : waxMat);
+    c.flame = new THREE.Sprite(flameMat);
+    c.g = new THREE.Group(); c.g.add(c.body); c.g.add(c.flame);
+    c.g.position.set(p.x, TOP, p.z); scene.add(c.g);
+    c.phase = Math.random() * 6.28;
+    c.born = instant || reduce ? -1e9 : performance.now();
+  }
+  function removeCandle(c) {
+    scene.remove(c.g);
+    const i = state.candles.indexOf(c);
+    if (i >= 0) state.candles.splice(i, 1);
+  }
+  function left(c, now) { return 1 - (now - c.t0) / c.dur; }
+  function freeSlot(s) {
+    const used = new Set();
+    state.candles.forEach((c) => { if (c.s === s) used.add(c.slot); });
+    const free = [];
+    for (let i = 0; i < SLOTS; i++) if (!used.has(i)) free.push(i);
+    return free.length ? free[(Math.random() * free.length) | 0] : -1;
+  }
+  function evict(s) {
+    const now = Date.now();
+    let pick = null, best = Infinity;
+    state.candles.forEach((c) => {
+      if (c.s !== s) return;
+      const score = left(c, now) * c.dur + (c.ex ? 0 : 1e12) + (c.gold ? 1e13 : 0);
+      if (score < best) { best = score; pick = c; }
+    });
+    const slot = pick.slot;
+    removeCandle(pick);
+    return slot;
+  }
+
+  function load() {
+    try {
+      const d = JSON.parse(localStorage.getItem(STORE) || 'null');
+      if (d && typeof d.balance === 'number' && Array.isArray(d.candles)) return d;
+      // the subject list changed: keep the old balance, drop candles tied to old tables
+      const old = JSON.parse(localStorage.getItem(OLD_STORE) || 'null');
+      if (old && typeof old.balance === 'number') return { balance: old.balance, candles: [] };
+    } catch (err) { /* storage is optional */ }
+    return null;
+  }
+  function save() {
+    try {
+      localStorage.setItem(STORE, JSON.stringify({
+        balance: state.balance,
+        candles: online ? [] : state.candles.filter((c) => !c.ex).map((c) => ({ s: c.s, slot: c.slot, gold: c.gold, t0: c.t0, dur: c.dur }))
+      }));
+    } catch (err) { /* storage is optional */ }
+  }
+
+  (function restore() {
+    const d = load(), now = Date.now();
+    if (d) state.balance = Math.max(0, Math.round(d.balance));
+    if (online) return; // shared candles come from the server
+    if (d) {
+      d.candles.forEach((c) => {
+        if (!c || !stations[c.s] || !(c.slot >= 0 && c.slot < SLOTS) || !(c.dur > 0)) return;
+        if (now - c.t0 >= c.dur || c.t0 > now + 60000) return;
+        if (state.candles.some((o) => o.s === c.s && o.slot === c.slot)) return;
+        const k = { s: c.s, slot: c.slot, gold: !!c.gold, t0: c.t0, dur: c.dur, ex: false, mine: true };
+        state.candles.push(k); addMesh(k, true);
+      });
+    }
+    // example candles so the hall is lit on arrival; the most feared subject gets the most
+    stations.forEach((st, s) => {
+      const n = SUBJECTS[st.sub].feared ? 7 : 2 + ((s * 5) % 3);
+      for (let i = 0; i < n; i++) {
+        const slot = freeSlot(s);
+        if (slot < 0) break;
+        const k = { s: s, slot: slot, gold: false, t0: now - Math.random() * 0.6 * DUR_PLAIN, dur: DUR_PLAIN, ex: true, mine: false };
+        state.candles.push(k); addMesh(k, true);
+      }
+    });
+  })();
+
+  /* ---------- HUD ---------- */
+  function plural(n, one, few, many) {
+    const a = n % 10, b = n % 100;
+    if (a === 1 && b !== 11) return one;
+    if (a >= 2 && a <= 4 && (b < 12 || b > 14)) return few;
+    return many;
+  }
+  let toastTimer = 0;
+  function toast(msg) {
+    ui.toast.textContent = msg; ui.toast.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => ui.toast.classList.remove('on'), 3200);
+  }
+  let hudKey = '';
+  function renderHud() {
+    const s = state.near;
+    let n = 0, mine = 0;
+    if (s >= 0) state.candles.forEach((c) => { if (c.s === s) { n++; if (c.mine) mine++; } });
+    const key = [s, n, mine, state.kind, state.balance, locked].join('|');
+    if (key === hudKey) return;
+    hudKey = key;
+    ui.balance.textContent = state.balance + ' ₽';
+    if (s < 0) {
+      ui.whereName.textContent = 'Подойдите к столу у любой доски';
+      ui.whereRest.textContent = '';
+      ui.place.disabled = true; ui.place.textContent = 'Подойдите к столу';
+    } else {
+      const sub = SUBJECTS[stations[s].sub];
+      ui.whereName.textContent = sub.name;
+      ui.whereRest.textContent = n
+        ? 'на столе ' + n + ' ' + plural(n, 'свечка', 'свечки', 'свечек') + ', ваших ' + mine
+        : 'на столе пока пусто';
+      ui.place.disabled = false;
+      ui.place.innerHTML = '<kbd>E</kbd> ' + (state.kind === 'gold' ? 'Поставить золотую за ' + PRICE + ' ₽' : 'Поставить свечку');
+    }
+    ui.place.classList.toggle('is-gold', state.kind === 'gold' && s >= 0);
+    ui.hint.textContent = locked
+        ? 'Esc вернёт курсор. Щелчок мышью тоже ставит свечку, P пополняет кошелёк.'
+        : 'Щёлкните по залу, чтобы смотреть мышью. Можно и тянуть с зажатой кнопкой.';
+  }
+  function setKind(k) {
+    state.kind = k;
+    ui.plain.checked = k === 'plain'; ui.gold.checked = k === 'gold';
+    renderHud();
+  }
+  function topup() {
+    state.balance += TOPUP; save(); renderHud();
+    toast('Демо-кошелёк пополнен на ' + TOPUP + ' ₽. Настоящие деньги не списываются.');
+  }
+  function place() {
+    if (!state.entered || NET.busy) return;
+    const s = state.near;
+    if (s < 0) { toast('Свечку ставят на стол. Подойдите к любой доске.'); return; }
+    const gold = state.kind === 'gold';
+    if (gold && state.balance < PRICE) {
+      toast('На золотую не хватает ' + (PRICE - state.balance) + ' ₽. Пополните демо-кошелёк кнопкой «+' + TOPUP + ' ₽»' + (fine ? ' или клавишей P.' : '.'));
+      return;
+    }
+    const acc = SUBJECTS[stations[s].sub].acc;
+    const done = (c) => {
+      if (!c) return;
+      if (gold) state.balance -= PRICE;
+      save(); hudKey = ''; renderHud();
+      toast(gold
+        ? 'Золотая свечка за ' + acc + ' будет гореть сутки. Списано ' + PRICE + ' ₽.'
+        : 'Свечка за ' + acc + ' будет гореть 10 минут.');
+    };
+    let slot = freeSlot(s);
+    if (online) {
+      if (slot < 0) slot = (Math.random() * SLOTS) | 0;
+      placeOnline(s, gold, slot).then(done);
+      return;
+    }
+    if (slot < 0) slot = evict(s);
+    const c = { s: s, slot: slot, gold: gold, t0: Date.now(), dur: gold ? DUR_GOLD : DUR_PLAIN, ex: false, mine: true };
+    state.candles.push(c); addMesh(c, false);
+    done(c);
+  }
+
+  /* ---------- multiplayer ---------- */
+  function cleanName(v) {
+    return String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 16);
+  }
+  function newId() { return Math.random().toString(36).slice(2, 12) + Date.now().toString(36); }
+  function ident() {
+    const ok = /^[a-z0-9]{8,32}$/;
+    let owner = '', id = '', name = '';
+    try { owner = localStorage.getItem('svechka.owner') || ''; name = localStorage.getItem('svechka.name') || ''; } catch (err) { /* optional */ }
+    try { id = sessionStorage.getItem('svechka.tab') || ''; } catch (err) { /* optional */ }
+    if (!ok.test(owner)) { owner = newId(); try { localStorage.setItem('svechka.owner', owner); } catch (err) { /* optional */ } }
+    if (!ok.test(id)) { id = newId(); try { sessionStorage.setItem('svechka.tab', id); } catch (err) { /* optional */ } }
+    NET.owner = owner; NET.id = id; // owner survives between visits, id is one per tab
+    NET.name = cleanName(name) || 'Студент ' + (parseInt(owner.slice(0, 4), 36) % 900 + 100);
+    let h = 0;
+    for (let i = 0; i < owner.length; i++) h = (h * 31 + owner.charCodeAt(i)) % 360;
+    NET.hue = h;
+  }
+  function setOnline() {
+    if (!online) return;
+    ui.online.hidden = false;
+    ui.online.textContent = NET.live ? 'В зале: ' + NET.count : 'Нет связи с сервером';
+  }
+
+  const peerBodyGeo = new THREE.CylinderGeometry(0.2, 0.34, 1.3, 12);
+  const peerHeadGeo = new THREE.SphereGeometry(0.17, 14, 10);
+  const headMat = new THREE.MeshPhongMaterial({ color: 0xd9c7a8, shininess: 8 });
+  function labelTexture(name) {
+    const cv = makeCanvas(256, 64), c = cv.getContext('2d');
+    c.font = '600 30px "Golos Text", "Segoe UI", system-ui, sans-serif';
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    const w = Math.min(248, c.measureText(name).width + 28);
+    c.fillStyle = 'rgba(14,20,18,0.8)'; c.fillRect(128 - w / 2, 10, w, 44);
+    c.fillStyle = '#ece8dc'; c.fillText(name, 128, 33, 228);
+    return texture(cv);
+  }
+  function makePeer(q) {
+    const g = new THREE.Group();
+    const robe = new THREE.MeshPhongMaterial({ color: new THREE.Color().setHSL((((q.hue | 0) % 360) + 360) % 360 / 360, 0.42, 0.4), shininess: 6 });
+    const body = new THREE.Mesh(peerBodyGeo, robe); body.position.y = 0.65;
+    const head = new THREE.Mesh(peerHeadGeo, headMat); head.position.y = 1.5;
+    const candle = new THREE.Mesh(candleGeo, waxMat); candle.scale.set(0.022, 0.24, 0.022); candle.position.set(0.2, 1.12, -0.3);
+    const flame = new THREE.Sprite(flameMat); flame.position.set(0.2, 1.3, -0.3);
+    const tex = labelTexture(q.name);
+    const labelMat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+    const label = new THREE.Sprite(labelMat); label.scale.set(1.4, 0.35, 1); label.position.y = 2;
+    g.add(body); g.add(head); g.add(candle); g.add(flame); g.add(label);
+    g.position.set(q.x, 0, q.z); g.rotation.y = q.yaw; scene.add(g);
+    const peer = { g: g, robe: robe, tex: tex, labelMat: labelMat, flame: flame, name: q.name,
+      x: q.x, z: q.z, yaw: q.yaw, tx: q.x, tz: q.z, tyaw: q.yaw, seen: performance.now(), phase: Math.random() * 6.28 };
+    NET.peers.set(q.id, peer);
+    return peer;
+  }
+  function dropPeer(id) {
+    const peer = NET.peers.get(id);
+    if (!peer) return;
+    scene.remove(peer.g); peer.robe.dispose(); peer.tex.dispose(); peer.labelMat.dispose();
+    NET.peers.delete(id);
+  }
+  // everything received from other players is untrusted: validate, clamp, never use as HTML
+  function onPos(p) {
+    if (!p || typeof p.id !== 'string' || p.id.length > 40 || p.id === NET.id) return;
+    const x = +p.x, z = +p.z, yaw = +p.yaw;
+    if (!isFinite(x) || !isFinite(z) || !isFinite(yaw)) return;
+    const q = { id: p.id, name: cleanName(p.name) || 'Студент', hue: +p.hue || 0, yaw: yaw,
+      x: Math.max(-W / 2 + 0.4, Math.min(W / 2 - 0.4, x)), z: Math.max(-D / 2 + 0.4, Math.min(D / 2 - 0.4, z)) };
+    let peer = NET.peers.get(q.id);
+    if (!peer) {
+      if (NET.peers.size >= 40) return;
+      peer = makePeer(q);
+    } else if (peer.name !== q.name) {
+      peer.name = q.name; peer.tex.dispose();
+      peer.tex = labelTexture(q.name); peer.labelMat.map = peer.tex; peer.labelMat.needsUpdate = true;
+    }
+    peer.tx = q.x; peer.tz = q.z; peer.tyaw = q.yaw; peer.seen = performance.now();
+  }
+  function serverCandle(row, animate) {
+    if (!row || typeof row.id !== 'string' || NET.ids.has(row.id)) return null;
+    const s = row.station, t = Date.parse(row.placed_at);
+    if (s !== (s | 0) || !stations[s] || !isFinite(t)) return null;
+    const gold = row.gold === true, dur = gold ? DUR_GOLD : DUR_PLAIN, now = Date.now();
+    const t0 = Math.min(now, t - NET.offset);
+    if (now - t0 >= dur) return null;
+    NET.ids.add(row.id);
+    let slot = row.slot | 0;
+    if (!(slot >= 0 && slot < SLOTS) || state.candles.some((o) => o.s === s && o.slot === slot)) {
+      slot = freeSlot(s);
+      if (slot < 0) slot = evict(s);
+    }
+    const c = { id: row.id, s: s, slot: slot, gold: gold, t0: t0, dur: dur, ex: false, mine: row.player_id === NET.owner };
+    state.candles.push(c); addMesh(c, !animate); hudKey = '';
+    return c;
+  }
+  const COLS = 'id,station,slot,gold,player_id,placed_at';
+  async function fetchKind(gold, animate) {
+    const since = new Date(Date.now() + NET.offset - (gold ? DUR_GOLD : DUR_PLAIN) - 60000).toISOString();
+    const res = await NET.client.from('candles').select(COLS).eq('gold', gold).gt('placed_at', since)
+      .order('placed_at', { ascending: false }).limit(300);
+    if (res.error) throw new Error(res.error.message || 'ошибка запроса');
+    (res.data || []).reverse().forEach((row) => serverCandle(row, animate));
+  }
+  async function fetchAll(animate) {
+    try { await fetchKind(true, animate); await fetchKind(false, animate); }
+    catch (err) {
+      if (!NET.warned) { NET.warned = true; toast('Сервер не отдал свечки: ' + err.message + '. Проверьте, что выполнен supabase.sql.'); }
+    }
+  }
+  async function placeOnline(s, gold, slot) {
+    NET.busy = true;
+    try {
+      const res = await NET.client.from('candles')
+        .insert({ station: s, slot: slot, gold: gold, player: NET.name, player_id: NET.owner }).select(COLS).single();
+      if (res.error || !res.data) {
+        toast('Сервер не принял свечку. ' + (res.error && res.error.message ? res.error.message : 'Попробуйте ещё раз.'));
+        return null;
+      }
+      const t = Date.parse(res.data.placed_at);
+      if (isFinite(t)) NET.offset = t - Date.now(); // server clock minus this device's clock
+      const c = serverCandle(res.data, true);
+      if (NET.ch && NET.live) {
+        const r = NET.ch.send({ type: 'broadcast', event: 'candle', payload: { name: NET.name, station: s, gold: gold } });
+        if (r && r.catch) r.catch(() => {});
+      }
+      return c;
+    } catch (err) {
+      toast('Нет связи с сервером. Свечка не поставлена.');
+      return null;
+    } finally { NET.busy = false; }
+  }
+  let refetchTimer = 0;
+  function onCandle(p) {
+    // the message is only a nudge: the candle itself is read back from the database
+    clearTimeout(refetchTimer);
+    refetchTimer = setTimeout(() => fetchAll(true), 250);
+    const n = cleanName(p && p.name), s = p && p.station;
+    if (n && s === (s | 0) && stations[s]) {
+      toast(n + (p.gold === true ? ' ставит золотую свечку за ' : ' ставит свечку за ') + SUBJECTS[stations[s].sub].acc + '.');
+    }
+  }
+  function announce() {
+    if (!NET.live || !state.entered || NET.tracked) return;
+    NET.tracked = true;
+    const r = NET.ch.track({ name: NET.name, hue: NET.hue });
+    if (r && r.catch) r.catch(() => {});
+  }
+  function connect() {
+    const ch = NET.client.channel('hall', { config: { broadcast: { self: false }, presence: { key: NET.id } } });
+    NET.ch = ch;
+    ch.on('broadcast', { event: 'pos' }, (m) => onPos(m && m.payload));
+    ch.on('broadcast', { event: 'candle' }, (m) => onCandle(m && m.payload));
+    ch.on('presence', { event: 'sync' }, () => { NET.count = Object.keys(ch.presenceState()).length; setOnline(); });
+    ch.on('presence', { event: 'join' }, (e) => {
+      if (!e || e.key === NET.id) return;
+      NET.force = true; // show the newcomer where we stand
+      if (performance.now() - NET.since < 4000) return;
+      const n = cleanName(e.newPresences && e.newPresences[0] && e.newPresences[0].name);
+      if (n) toast(n + ' теперь в зале.');
+    });
+    ch.on('presence', { event: 'leave' }, (e) => { if (e && e.key) dropPeer(e.key); });
+    ch.subscribe((status) => {
+      const was = NET.live;
+      NET.live = status === 'SUBSCRIBED';
+      if (NET.live && !was) { NET.since = performance.now(); NET.tracked = false; announce(); fetchAll(false); }
+      setOnline();
+    });
+  }
+  if (online) {
+    ident();
+    ui.nickField.hidden = false; ui.nick.value = NET.name;
+    ui.introFine.textContent = 'Свечки в зале общие: их видят все, кто сюда заходит. Кошелёк демонстрационный, настоящие деньги не списываются.';
+    setOnline(); connect(); fetchAll(false);
+    setInterval(() => { if (!document.hidden) fetchAll(true); }, 60000);
+    // sweep rows older than a day; the database allows deleting only those
+    NET.client.from('candles').delete().lt('placed_at', new Date(Date.now() - 25 * 3600 * 1000).toISOString()).then(() => {}, () => {});
+  }
+
+  /* ---------- input ---------- */
+  const player = { x: 0, z: -1.4, yaw: 0, pitch: 0.04 };
+  const K = {};
+  const joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
+  let lookId = null, lookX = 0, lookY = 0;
+  let locked = false, drag = false, dragMoved = 0, lastTouch = 0;
+
+  function look(dx, dy, k) {
+    player.yaw -= dx * k;
+    player.pitch = Math.max(-1.2, Math.min(1.2, player.pitch - dy * k));
+  }
+  function requestLock() {
+    if (!fine || !canvas.requestPointerLock) return;
+    try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (err) { /* optional */ }
+  }
+  document.addEventListener('pointerlockchange', () => {
+    locked = document.pointerLockElement === canvas;
+    app.classList.toggle('locked', locked);
+    renderHud();
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target === ui.nick) { if (e.code === 'Enter' || e.code === 'NumpadEnter') ui.enter.click(); return; }
+    K[e.code] = true;
+    if (e.code === 'KeyE' && !e.repeat) place();
+    else if (e.code === 'Digit1') setKind('plain');
+    else if (e.code === 'Digit2') setKind('gold');
+    else if (e.code === 'KeyP' && !e.repeat) topup();
+    if (e.code.indexOf('Arrow') === 0 && document.activeElement === canvas) e.preventDefault();
+  });
+  window.addEventListener('keyup', (e) => { K[e.code] = false; });
+  window.addEventListener('blur', () => { for (const k in K) K[k] = false; });
+
+  canvas.addEventListener('mousedown', (e) => {
+    if (performance.now() - lastTouch < 800 || e.button !== 0) return;
+    canvas.focus({ preventScroll: true });
+    if (locked) { place(); return; }
+    drag = true; dragMoved = 0;
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (locked) look(e.movementX || 0, e.movementY || 0, 0.0023);
+    else if (drag) { look(e.movementX || 0, e.movementY || 0, 0.004); dragMoved += Math.abs(e.movementX || 0) + Math.abs(e.movementY || 0); }
+  });
+  document.addEventListener('mouseup', () => {
+    if (drag && dragMoved < 5 && state.entered) requestLock();
+    drag = false;
+  });
+
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse') return;
+    e.preventDefault(); lastTouch = performance.now();
+    const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    if (joy.id === null && x < r.width / 2) {
+      joy.id = e.pointerId; joy.ox = x; joy.oy = y; joy.x = joy.y = 0;
+      ui.stick.style.left = x + 'px'; ui.stick.style.top = y + 'px';
+      ui.stick.firstElementChild.style.transform = '';
+      ui.stick.hidden = false;
+    } else if (lookId === null) { lookId = e.pointerId; lookX = x; lookY = y; }
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* optional */ }
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'mouse') return;
+    const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    if (e.pointerId === joy.id) {
+      let dx = (x - joy.ox) / 48, dy = (y - joy.oy) / 48;
+      const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; }
+      joy.x = dx; joy.y = dy;
+      ui.stick.firstElementChild.style.transform = 'translate(' + dx * 31 + 'px,' + dy * 31 + 'px)';
+    } else if (e.pointerId === lookId) { look(x - lookX, y - lookY, 0.006); lookX = x; lookY = y; }
+  });
+  function touchEnd(e) {
+    if (e.pointerType === 'mouse') return;
+    lastTouch = performance.now();
+    if (e.pointerId === joy.id) { joy.id = null; joy.x = joy.y = 0; ui.stick.hidden = true; }
+    if (e.pointerId === lookId) lookId = null;
+  }
+  canvas.addEventListener('pointerup', touchEnd);
+  canvas.addEventListener('pointercancel', touchEnd);
+
+  const backToHall = (e) => { if (e.detail > 0) canvas.focus({ preventScroll: true }); };
+  ui.plain.addEventListener('change', () => setKind('plain'));
+  ui.gold.addEventListener('change', () => setKind('gold'));
+  ui.plain.addEventListener('click', backToHall);
+  ui.gold.addEventListener('click', backToHall);
+  ui.topup.addEventListener('click', (e) => { topup(); backToHall(e); });
+  ui.place.addEventListener('click', (e) => { place(); backToHall(e); });
+  ui.enter.addEventListener('click', () => {
+    if (online) {
+      NET.name = cleanName(ui.nick.value) || NET.name;
+      try { localStorage.setItem('svechka.name', NET.name); } catch (err) { /* optional */ }
+    }
+    state.entered = true;
+    announce();
+    ui.intro.hidden = true; ui.panel.hidden = false; ui.cross.hidden = false;
+    canvas.focus({ preventScroll: true });
+    requestLock();
+    hudKey = ''; renderHud();
+  });
+
+  /* ---------- simulation ---------- */
+  const R = 0.38;
+  function collide() {
+    player.x = Math.max(-W / 2 + R + 0.1, Math.min(W / 2 - R - 0.1, player.x));
+    player.z = Math.max(-D / 2 + R + 0.1, Math.min(D / 2 - R - 0.1, player.z));
+    for (let i = 0; i < stations.length; i++) {
+      const st = stations[i], hx = 1.5 + R, hz = 0.45 + R;
+      const ox = player.x - st.x, oz = player.z - st.tz;
+      if (Math.abs(ox) < hx && Math.abs(oz) < hz) {
+        if (hx - Math.abs(ox) < hz - Math.abs(oz)) player.x = st.x + (ox < 0 ? -hx : hx);
+        else player.z = st.tz + ((oz || st.dir) < 0 ? -hz : hz);
+      }
+    }
+  }
+  function findNear() {
+    const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw);
+    let best = -1, bd = 3.2;
+    for (let i = 0; i < stations.length; i++) {
+      const st = stations[i], dx = st.x - player.x, dz = st.tz - player.z, d = Math.hypot(dx, dz);
+      if (d < bd && (dx * fx + dz * fz) / (d || 1) > 0.25) { bd = d; best = i; }
+    }
+    return best;
+  }
+
+  let bob = 0;
+  function step(dt, now) {
+    let f = 0, r = 0;
+    if (K.KeyW || K.ArrowUp) f += 1;
+    if (K.KeyS || K.ArrowDown) f -= 1;
+    if (K.KeyD) r += 1;
+    if (K.KeyA) r -= 1;
+    if (K.ArrowLeft) player.yaw += 1.9 * dt;
+    if (K.ArrowRight) player.yaw -= 1.9 * dt;
+    f -= joy.y; r += joy.x;
+    const len = Math.hypot(f, r);
+    if (len > 1) { f /= len; r /= len; }
+    const speed = (K.ShiftLeft || K.ShiftRight) ? 5.4 : 3.1;
+    const sin = Math.sin(player.yaw), cos = Math.cos(player.yaw);
+    player.x += (-sin * f + cos * r) * speed * dt;
+    player.z += (-cos * f - sin * r) * speed * dt;
+    collide();
+    if (len > 0.05 && !reduce) bob += dt * speed * 2.2;
+    camera.position.set(player.x, 1.65 + (reduce ? 0 : Math.sin(bob) * 0.022), player.z);
+    camera.rotation.set(player.pitch, player.yaw, 0);
+
+    const wall = Date.now(), t = now / 1000;
+    for (let i = 0; i < stations.length; i++) stations[i].glow = 0;
+    let burnt = false;
+    for (let i = state.candles.length - 1; i >= 0; i--) {
+      const c = state.candles[i], frac = left(c, wall);
+      if (frac <= 0) { burnt = burnt || !c.ex; removeCandle(c); continue; }
+      const grow = Math.min(1, (now - c.born) / 450), ease = grow * (2 - grow);
+      const h = c.fullH * (0.3 + 0.7 * frac) * Math.max(0.02, ease);
+      c.body.scale.set(c.r, h, c.r); c.body.position.y = h / 2;
+      const flick = reduce ? 1 : 1 + 0.13 * Math.sin(t * 13 + c.phase) * Math.sin(t * 7.1 + c.phase * 1.7) + 0.05 * Math.sin(t * 31 + c.phase);
+      const fs = (c.gold ? 0.21 : 0.14) * flick * ease;
+      c.flame.scale.set(fs, fs * 1.5, 1); c.flame.position.y = h + fs * 0.6;
+      stations[c.s].glow += c.gold ? 0.45 : 0.14;
+    }
+    if (burnt) save();
+    for (let i = 0; i < stations.length; i++) {
+      const st = stations[i], target = Math.min(1.8, st.glow);
+      const flick = reduce ? 1 : 0.93 + 0.07 * Math.sin(t * 9 + i * 2.1) * Math.sin(t * 5.3 + i);
+      st.light.intensity += (target * flick - st.light.intensity) * Math.min(1, dt * 6);
+    }
+    if (NET.live && state.entered) {
+      const sig = player.x.toFixed(2) + '|' + player.z.toFixed(2) + '|' + player.yaw.toFixed(2);
+      // every update is delivered to everyone and each delivery counts against the free limit
+      if (NET.force || now - NET.lastSend > (sig === NET.lastSig ? 15000 : 400)) {
+        NET.force = false;
+        NET.lastSend = now; NET.lastSig = sig;
+        const r = NET.ch.send({ type: 'broadcast', event: 'pos', payload: {
+          id: NET.id, name: NET.name, hue: NET.hue,
+          x: +player.x.toFixed(2), z: +player.z.toFixed(2), yaw: +player.yaw.toFixed(2) } });
+        if (r && r.catch) r.catch(() => {});
+      }
+    }
+    if (NET.peers.size) {
+      const k = 1 - Math.exp(-dt * 5);
+      NET.peers.forEach((peer, id) => {
+        if (now - peer.seen > 40000) { dropPeer(id); return; }
+        peer.x += (peer.tx - peer.x) * k; peer.z += (peer.tz - peer.z) * k;
+        const da = peer.tyaw - peer.yaw;
+        peer.yaw += Math.atan2(Math.sin(da), Math.cos(da)) * k;
+        peer.g.position.set(peer.x, 0, peer.z); peer.g.rotation.y = peer.yaw;
+        const fl = reduce ? 1 : 1 + 0.12 * Math.sin(t * 12 + peer.phase);
+        peer.flame.scale.set(0.1 * fl, 0.15 * fl, 1);
+      });
+    }
+    state.near = findNear();
+    renderHud();
+  }
+
+  function resize() {
+    const w = app.clientWidth, h = app.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    const aspect = w / h;
+    camera.aspect = aspect;
+    // keep at least ~62° of horizontal view on tall phone screens
+    camera.fov = aspect < 1.02 ? Math.min(96, 2 * Math.atan(0.6 / aspect) * 180 / Math.PI) : 70;
+    camera.updateProjectionMatrix();
+  }
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(app);
+  window.addEventListener('resize', resize);
+
+  function start(hot) {
+    const p = hot && hot.player;
+    if (p && isFinite(p.x) && isFinite(p.z)) { player.x = p.x; player.z = p.z; player.yaw = p.yaw || 0; player.pitch = p.pitch || 0; }
+    if (hot && hot.kind === 'gold') setKind('gold');
+    if (hot && hot.entered) { state.entered = true; ui.intro.hidden = true; ui.panel.hidden = false; ui.cross.hidden = false; announce(); }
+    resize(); renderHud();
+    let last = performance.now();
+    (function frame(now) {
+      requestAnimationFrame(frame);
+      const dt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+      if (document.hidden) return;
+      step(dt, now);
+      renderer.render(scene, camera);
+    })(last);
+  }
+  const hot = window.claude && window.claude.hot;
+  if (hot && hot.snapshot) hot.snapshot(() => ({ player: { x: player.x, z: player.z, yaw: player.yaw, pitch: player.pitch }, kind: state.kind, entered: state.entered }));
+  if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
+})();
+</script>
+</body>
+</html>
